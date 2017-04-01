@@ -1,0 +1,96 @@
+<div class="row">
+    <div class="col-md-12" id="vtAir-googleMaps"></div>
+    
+    <script type="text/javascript">
+        var map;
+        var mapMarkers = [];
+        var markers = <?=$markers?>;
+
+        $(function() {
+            CustomMarker.prototype = new google.maps.OverlayView();
+
+            function CustomMarker(opts) {
+                this.setValues(opts);
+            }
+
+            CustomMarker.prototype.draw = function() {
+                var self = this;
+                var div = this.div;
+                if (this.colorClass == null) { this.colorClass = "greenPin"}
+                if (!div) {
+                    div = this.div = $('' +
+                        '<div>' +
+                        '<div class="shadow"></div>' +
+                        (this.warn ? '<div class="pulse"></div>' : '') +
+                        '<div class="pin-wrap">' +
+                        '<div class="pin '+this.colorClass+'"></div>' +
+                        '</div>' +
+                        '</div>' +
+                        '')[0];
+                    this.pinWrap = this.div.getElementsByClassName('pin-wrap');
+                    this.pin = this.div.getElementsByClassName('pin');
+                    this.pinShadow = this.div.getElementsByClassName('shadow');
+                    div.style.position = 'absolute';
+                    div.style.cursor = 'pointer';
+                    var panes = this.getPanes();
+                    panes.overlayImage.appendChild(div);
+                    google.maps.event.addDomListener(div, "click", function(event) {
+                        google.maps.event.trigger(self, "click", event);
+                    });
+                }
+                var point = this.getProjection().fromLatLngToDivPixel(this.position);
+                if (point) {
+                    div.style.left = point.x + 'px';
+                    div.style.top = point.y + 'px';
+                }
+            };
+
+            CustomMarker.prototype.remove = function() {
+                var self = this;
+                var div = this.div;
+                $(div).remove();
+            };
+
+            map = new google.maps.Map(document.getElementById('vtAir-googleMaps'), {
+                center: new google.maps.LatLng(43.0822, 25.631667),
+                zoom: 14,
+                disableDefaultUI: true,
+                mapTypeId: 'terrain'
+            });
+
+            function setMarkers(markers, map) {
+                var i = 0;
+                $.each(markers, function (key, marker) {
+                	var gMarker = new CustomMarker(
+                    	{
+                        	position: new google.maps.LatLng(marker.latitude, marker.longitude),
+                        	map: map,
+                        	colorClass: marker.colorClass != null ? marker.colorClass : "greenPin",
+                        	warn: marker.warn != null ? marker.warn : false 
+                        }
+                    );
+                	mapMarkers.push(gMarker);
+                	i++;
+                });
+            }
+
+            function reloadMarkers() {
+                for (var i =0; i< mapMarkers.length; i++) { 
+                    mapMarkers[i].setMap(null);
+                }
+                mapMarkers = [];
+                $.ajax({
+              	  method: "POST",
+              	  url: 'http://vt_air.bksi-bg.com/application/index/refresh',
+              	})
+              	  .done(function( markers ) {
+                		setMarkers(JSON.parse(markers), map);
+                });
+            };
+            setMarkers(markers, map);
+            setInterval(function() {
+                    reloadMarkers();
+                }, 5000);
+        });
+    </script>
+</div>
